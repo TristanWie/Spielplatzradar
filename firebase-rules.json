@@ -1,0 +1,24 @@
+{
+  "rules": {
+    "gruppen": {
+      "$groupId": {
+        ".read": true,
+        ".write": true,
+        "checkins": {
+          "$deviceId": {
+            ".validate": "newData.hasChildren(['name', 'playgroundName', 'checkedInAt', 'expiresAt'])"
+          }
+        },
+        "spielplaetze": {
+          "$spielplatzId": {
+            ".validate": "newData.hasChildren(['name', 'addedBy'])"
+          }
+        }
+      }
+    },
+    "$other": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

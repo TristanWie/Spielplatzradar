@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+  <!-- PWA & iOS Web App Meta-Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Spielplatzradar" />
+  <link rel="apple-touch-icon" href="./assets/icon-180.png" />
+  <meta name="theme-color" content="#fef5f1" />
+
+  <!-- Web App Manifest -->
+  <link rel="manifest" href="./manifest.json" />
+
+  <meta name="description" content="Spielplatzradar - Echtzeitkoordinierung mit Freunden auf dem Spielplatz" />
+  <meta name="application-name" content="Spielplatzradar" />
+
+  <title>Spielplatzradar</title>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    #root { width: 100%; height: 100%; }
+    body { background: #fef5f1; font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- React & UI-Bibliotheken via CDN -->
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Firebase (compat-Version, damit wir wie gewohnt mit <script>-Tags arbeiten können) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+
+  <!-- ================================================================
+       FIREBASE-KONFIGURATION
+       Diese Werte bekommst du aus der Firebase Console:
+       Projekteinstellungen (Zahnrad oben links) → "Deine Apps" → Web-App
+       Siehe README.md, Abschnitt "Firebase einrichten"
+       ================================================================ -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "DEIN_API_KEY",
+      authDomain: "DEIN_PROJEKT.firebaseapp.com",
+      databaseURL: "https://DEIN_PROJEKT-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "DEIN_PROJEKT",
+      storageBucket: "DEIN_PROJEKT.appspot.com",
+      messagingSenderId: "...",
+      appId: "..."
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const firebaseDb = firebase.database();
+  </script>
+
+  <!-- App Code -->
+  <script>
+    const { useState, useEffect } = React;
+    const {
+      MapPin, Navigation, Map, User, Plus, X, LogOut, Users, Trash2, Loader2, Wifi, WifiOff,
+    } = lucide;
+
+    /* ============================================================================
+     * SPIELPLATZRADAR
+     * Löst folgendes Problem: Familien/Freunde müssen sich nicht mehr einzeln
+     * anschreiben, um zu sagen "wir sind auf dem Spielplatz X" - stattdessen
+     * checkt man kurz ein und alle mit dem gleichen Gruppen-Code sehen es live.
+     *
+     * DATENHALTUNG:
+     * - Profil (Name, Gruppen-Code, Geräte-ID)  -> localStorage, nur dieses Gerät
+     * - Check-ins & Spielplätze                 -> Firebase Realtime Database,
+     *                                              geteilt innerhalb der Gruppe
+     *
+     * DATENSTRUKTUR IN FIREBASE:
+     *   gruppen/
+     *     {groupId}/
+     *       checkins/
+     *         {deviceId}: { name, playgroundName, checkedInAt, expiresAt }
+     *       spielplaetze/
+     *         {autoId}: { name, addedBy }
+     *
+     * Wichtig: Jeder Check-in liegt unter der eigenen deviceId. Dadurch schreibt
+     * jedes Gerät nur seinen eigenen Knoten - zwei Leute, die gleichzeitig
+     * einchecken, können sich nicht mehr gegenseitig überschreiben.
+     * ==========================================================================*/
+
+    const DAUER_OPTIONEN_STUNDEN = [1, 2, 3, 4];
+    const STANDARD_DAUER_STUNDEN = 3;
+    const PROFILE_KEY = "spielplatzradar-profil";
+
+    const AVATAR_FARBEN = [
+      { bg: "bg-emerald-100", text: "text-emerald-700" },
+      { bg: "bg-sky-100", text: "text-sky-700" },
+      { bg: "bg-amber-100", text: "text-amber-700" },
+      { bg: "bg-rose-100", text: "text-rose-700" },
+      { bg: "bg-violet-100", text: "text-violet-700" },
+      { bg: "bg-teal-100", text: "text-teal-700" },
+    ];
+
+    function neueId() {
+      if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+      return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    }
+
+    function saeubereGruppenCode(code) {
+      const bereinigt = code
+        .trim()
+        .toLowerCase()
+        .replace(/ä/g, "ae")
+        .replace(/ö/g, "oe")
+        .replace(/ü/g, "ue")
+        .replace(/ß/g, "ss")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      return bereinigt || "gruppe";
+    }
+
+    function formatiereVergangeneZeit(isoString) {
+      const minuten = Math.max(0, Math.round((Date.now() - new Date(isoString).getTime()) / 60000));
+      if (minuten < 1) return "gerade eben";
+      if (minuten < 60) return `seit ${minuten} Min`;
+      const stunden = Math.floor(minuten / 60);
+      const restMinuten = minuten % 60;
+      return `seit ${stunden} Std${restMinuten ? ` ${restMinuten} Min` : ""}`;
+    }
+
+    function formatiereVerbleibendeZeit(expiresAtIso) {
+      const diffMs = new Date(expiresAtIso).getTime() - Date.now();
+      if (diffMs <= 0) return "läuft gleich ab";
+      const minuten = Math.round(diffMs / 60000);
+      if (minuten < 60) return `noch ${minuten} Min`;
+      const stunden = Math.floor(minuten / 60);
+      const restMinuten = minuten % 60;
+      return `noch ${stunden} Std${restMinuten ? ` ${restMinuten} Min` : ""}`;
+    }
+
+    function farbeFuerName(name) {
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+      return AVATAR_FARBEN[hash % AVATAR_FARBEN.length];
+    }
+
+    function initialenFuerName(name) {
+      const teile = name.trim().split(/\s+/);
+      const erste = teile[0]?.[0] || "?";
+      const zweite = teile.length > 1 ? teile[teile.length - 1][0] : "";
+      return (erste + zweite).toUpperCase();
+    }
+
+    // ---- Profil: lokal auf dem Gerät (localStorage) ----------------------------
+
+    function ladeProfil() {
+      try {
+        const roh = localStorage.getItem(PROFILE_KEY);
+        return roh ? JSON.parse(roh) : null;
+      } catch (fehler) {
+        return null;
+      }
+    }
+
+    function speichereProfil(profil) {
+      try {
+        localStorage.setItem(PROFILE_KEY, JSON.stringify(profil));
+        return true;
+      } catch (fehler) {
+        console.error("Spielplatzradar: Fehler beim Speichern (Profil):", fehler);
+        return false;
+      }
+    }
+
+    function loescheProfil() {
+      try {
+        localStorage.removeItem(PROFILE_KEY);
+        return true;
+      } catch (fehler) {
+        return false;
+      }
+    }
+
+    // ---- Firebase-Pfade für eine Gruppe -----------------------------------------
+
+    function pfadCheckins(groupId) {
+      return firebaseDb.ref(`gruppen/${groupId}/checkins`);
+    }
+
+    function pfadSpielplaetze(groupId) {
+      return firebaseDb.ref(`gruppen/${groupId}/spielplaetze`);
+    }
+
+    // Wandelt Firebase-Objekt { key: value, ... } in ein Array [{ id, ...value }] um
+    function objektZuArray(objekt) {
+      if (!objekt) return [];
+      return Object.entries(objekt).map(([id, wert]) => ({ id, ...wert }));
+    }
+
+    // UI Komponenten -------------------------------------------------------------
+
+    function Toast({ nachricht }) {
+      return nachricht ? (
+        <div className="fixed bottom-32 left-1/2 -translate-x-1/2 bg-stone-800 text-white px-4 py-2 rounded-full text-sm shadow-lg z-50">
+          {nachricht}
+        </div>
+      ) : null;
+    }
+
+    function KopfBereich({ gruppenName, verbunden }) {
+      return (
+        <header className="bg-white border-b border-stone-200 pt-safe">
+          <div className="px-4 py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="text-emerald-600">
+                <MapPin size={24} />
+              </div>
+              <div>
+                <h1 className="font-display font-bold text-lg text-stone-900">Spielplatzradar</h1>
+                <p className="text-xs text-stone-500">{gruppenName}</p>
+              </div>
+            </div>
+            <div
+              className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+                verbunden ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-500"
+              }`}
+              title={verbunden ? "Live verbunden" : "Verbindung wird aufgebaut..."}
+            >
+              {verbunden ? <Wifi size={14} /> : <WifiOff size={14} />}
+              {verbunden ? "Live" : "..."}
+            </div>
+          </div>
+        </header>
+      );
+    }
+
+    function UntenNavigation({ aktiv, onWechseln }) {
+      return (
+        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 pb-safe flex justify-around">
+          {[
+            { id: "live", label: "Live", icon: Navigation },
+            { id: "spielplaetze", label: "Spielplätze", icon: Map },
+            { id: "ich", label: "Ich", icon: User },
+          ].map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => onWechseln(id)}
+              className={`flex-1 py-4 flex flex-col items-center gap-1 font-body text-xs transition-colors ${
+                aktiv === id ? "text-emerald-600 border-t-2 border-emerald-600" : "text-stone-500"
+              }`}
+            >
+              <Icon size={24} />
+              {label}
+            </button>
+          ))}
+        </nav>
+      );
+    }
+
+    function OnboardingBildschirm({ onFertig }) {
+      const [name, setName] = useState("");
+      const [code, setCode] = useState("");
+
+      return (
+        <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-stone-50 flex flex-col items-center justify-center px-6 py-8 gap-8">
+          <div className="text-center gap-2 flex flex-col">
+            <div className="text-emerald-600 mx-auto mb-4">
+              <MapPin size={48} />
+            </div>
+            <h1 className="font-display text-3xl font-bold text-stone-900">Spielplatzradar</h1>
+            <p className="text-stone-600 text-sm">Schau, wer gerade im Park ist</p>
+          </div>
+
+          <div className="w-full max-w-sm space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-2">Dein Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="z. B. Anna"
+                className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-2">Gruppen-Code</label>
+              <input
+                type="text"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="z. B. Familie Müller"
+                className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              <p className="text-xs text-stone-500 mt-2">Alle mit dem gleichen Code sehen sich gegenseitig</p>
+            </div>
+
+            <button
+              onClick={() => { if (name.trim() && code.trim()) onFertig(name, code); }}
+              disabled={!name.trim() || !code.trim()}
+              className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-700 transition-colors"
+            >
+              Los geht's
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    function LiveTab({ profil, checkins, spielplaetze, onCheckIn, onCheckOut, onVerlaengern }) {
+      const [ausgewaehlteterSpielplatz, setAusgewaehlterSpielplatz] = useState("");
+      const [selectedDuration, setSelectedDuration] = useState(STANDARD_DAUER_STUNDEN);
+      const [freiText, setFreiText] = useState("");
+
+      const eigenerCheckin = checkins.find((c) => c.id === profil.deviceId);
+      const jetzt = Date.now();
+      const andereAktiveCheckins = checkins.filter(
+        (c) => c.id !== profil.deviceId && new Date(c.expiresAt).getTime() > jetzt
+      );
+
+      const handleCheckIn = () => {
+        const name = ausgewaehlteterSpielplatz || freiText;
+        if (name.trim()) {
+          onCheckIn(name, selectedDuration);
+          setAusgewaehlterSpielplatz("");
+          setFreiText("");
+        }
+      };
+
+      return (
+        <div className="space-y-6 px-4 py-4">
+          {!eigenerCheckin && (
+            <div className="space-y-4 bg-white p-4 rounded-lg border border-stone-200">
+              <div>
+                <label className="block text-sm font-medium text-stone-700 mb-2">Spielplatz</label>
+                <select
+                  value={ausgewaehlteterSpielplatz}
+                  onChange={(e) => setAusgewaehlterSpielplatz(e.target.value)}
+                  className="w-full px-4 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="">-- Auswählen oder neuer Name --</option>
+                  {spielplaetze.map((sp) => (
+                    <option key={sp.id} value={sp.name}>{sp.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {!ausgewaehlteterSpielplatz && (
+                <input
+                  type="text"
+                  value={freiText}
+                  onChange={(e) => setFreiText(e.target.value)}
+                  placeholder="Oder hier einen neuen Namen eingeben"
+                  className="w-full px-4 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-stone-700 mb-2">Wie lange?</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {DAUER_OPTIONEN_STUNDEN.map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setSelectedDuration(d)}
+                      className={`py-2 rounded-lg font-semibold transition-colors ${
+                        selectedDuration === d ? "bg-emerald-600 text-white" : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+                      }`}
+                    >
+                      {d}h
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={handleCheckIn}
+                disabled={!(ausgewaehlteterSpielplatz || freiText)}
+                className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold disabled:opacity-50 hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <Plus size={20} />
+                Einchecken
+              </button>
+            </div>
+          )}
+
+          {eigenerCheckin && (
+            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 rounded-lg border-2 border-emerald-600">
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <p className="text-sm text-emerald-700 font-medium">Du bist auf</p>
+                  <h2 className="font-display text-2xl font-bold text-emerald-900">{eigenerCheckin.playgroundName}</h2>
+                  <p className="text-xs text-emerald-600 mt-1">{formatiereVerbleibendeZeit(eigenerCheckin.expiresAt)}</p>
+                </div>
+                <button onClick={onCheckOut} className="p-2 bg-white rounded-lg hover:bg-stone-100 transition-colors">
+                  <X size={20} className="text-red-600" />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-xs text-emerald-700 font-medium mb-3">Verlängern um:</div>
+                <div className="grid grid-cols-4 gap-2">
+                  {[1, 2, 3, 4].map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => onVerlaengern(d)}
+                      className="py-2 bg-white text-emerald-700 rounded-lg font-semibold text-sm hover:bg-emerald-50 transition-colors"
+                    >
+                      +{d}h
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {andereAktiveCheckins.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="font-semibold text-stone-900 flex items-center gap-2">
+                <Users size={18} />
+                Wer ist noch da?
+              </h3>
+              <div className="space-y-2">
+                {andereAktiveCheckins.map((checkin) => {
+                  const farbe = farbeFuerName(checkin.name);
+                  const initiale = initialenFuerName(checkin.name);
+                  return (
+                    <div key={checkin.id} className="bg-white p-3 rounded-lg border border-stone-200">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-12 h-12 rounded-full ${farbe.bg} ${farbe.text} flex items-center justify-center font-semibold`}>
+                          {initiale}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-stone-900">{checkin.name}</p>
+                          <p className="text-xs text-stone-500">{checkin.playgroundName}</p>
+                          <p className="text-xs text-stone-400">{formatiereVergangeneZeit(checkin.checkedInAt)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {andereAktiveCheckins.length === 0 && !eigenerCheckin && (
+            <div className="text-center py-8 text-stone-500">
+              <MapPin size={32} className="mx-auto mb-2 opacity-50" />
+              <p className="text-sm">Noch niemand eingecheckt</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function SpielplaetzeTab({ spielplaetze, onHinzufuegen, onEntfernen }) {
+      const [neuer, setNeuer] = useState("");
+
+      return (
+        <div className="space-y-4 px-4 py-4">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={neuer}
+              onChange={(e) => setNeuer(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === "Enter" && neuer.trim()) { onHinzufuegen(neuer); setNeuer(""); }
+              }}
+              placeholder="Neuer Spielplatz..."
+              className="flex-1 px-4 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <button
+              onClick={() => { if (neuer.trim()) { onHinzufuegen(neuer); setNeuer(""); } }}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <Plus size={20} />
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {spielplaetze.map((sp) => (
+              <div key={sp.id} className="bg-white p-3 rounded-lg border border-stone-200 flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="font-medium text-stone-900">{sp.name}</p>
+                  <p className="text-xs text-stone-400">hinzugefügt von {sp.addedBy}</p>
+                </div>
+                <button onClick={() => onEntfernen(sp.id)} className="p-2 hover:bg-red-50 rounded-lg transition-colors">
+                  <Trash2 size={18} className="text-red-500" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {spielplaetze.length === 0 && (
+            <div className="text-center py-8 text-stone-500">
+              <Map size={32} className="mx-auto mb-2 opacity-50" />
+              <p className="text-sm">Noch keine Spielplätze hinzugefügt</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function IchTab({ profil, onProfilAktualisieren, onGruppeVerlassen }) {
+      const [name, setName] = useState(profil.name);
+      const [code, setCode] = useState(profil.code);
+
+      return (
+        <div className="space-y-4 px-4 py-4">
+          <div className="bg-white p-4 rounded-lg border border-stone-200 space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-2">Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-2">Gruppen-Code</label>
+              <input
+                type="text"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                className="w-full px-4 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <button
+              onClick={() => onProfilAktualisieren(name, code)}
+              className="w-full bg-emerald-600 text-white py-2 rounded-lg hover:bg-emerald-700 transition-colors font-semibold"
+            >
+              Speichern
+            </button>
+          </div>
+
+          <button
+            onClick={onGruppeVerlassen}
+            className="w-full bg-red-50 text-red-600 py-3 rounded-lg hover:bg-red-100 transition-colors font-semibold flex items-center justify-center gap-2"
+          >
+            <LogOut size={20} />
+            Gruppe verlassen
+          </button>
+        </div>
+      );
+    }
+
+    function SchriftUndAnimationsStile() {
+      return React.createElement("style", null, `
+        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+        .font-display { font-family: 'Quicksand', ui-rounded, system-ui, sans-serif; }
+        .font-body { font-family: 'Inter', system-ui, sans-serif; }
+      `);
+    }
+
+    // Hauptapp ---------------------------------------------------------------
+
+    function App() {
+      const [profil, setProfil] = useState(null);
+      const [profilGeladen, setProfilGeladen] = useState(false);
+      const [checkins, setCheckins] = useState([]);
+      const [spielplaetze, setSpielplaetze] = useState([]);
+      const [aktiverTab, setAktiverTab] = useState("live");
+      const [verbunden, setVerbunden] = useState(false);
+      const [toastNachricht, setToastNachricht] = useState("");
+
+      const zeigeToast = (msg) => {
+        setToastNachricht(msg);
+        setTimeout(() => setToastNachricht(""), 2000);
+      };
+
+      // Profil beim Start aus localStorage laden
+      useEffect(() => {
+        setProfil(ladeProfil());
+        setProfilGeladen(true);
+      }, []);
+
+      // Sobald ein Profil (und damit eine Gruppe) bekannt ist: live auf
+      // Firebase hören. onValue feuert sofort mit dem aktuellen Stand und
+      // danach bei jeder Änderung - kein Polling mehr nötig.
+      useEffect(() => {
+        if (!profil) return;
+
+        const refCheckins = pfadCheckins(profil.groupId);
+        const refSpielplaetze = pfadSpielplaetze(profil.groupId);
+        const refVerbindung = firebaseDb.ref(".info/connected");
+
+        const beiCheckinsAenderung = (snapshot) => setCheckins(objektZuArray(snapshot.val()));
+        const beiSpielplaetzeAenderung = (snapshot) => setSpielplaetze(objektZuArray(snapshot.val()));
+        const beiVerbindungsAenderung = (snapshot) => setVerbunden(snapshot.val() === true);
+
+        refCheckins.on("value", beiCheckinsAenderung);
+        refSpielplaetze.on("value", beiSpielplaetzeAenderung);
+        refVerbindung.on("value", beiVerbindungsAenderung);
+
+        return () => {
+          refCheckins.off("value", beiCheckinsAenderung);
+          refSpielplaetze.off("value", beiSpielplaetzeAenderung);
+          refVerbindung.off("value", beiVerbindungsAenderung);
+        };
+      }, [profil?.groupId]);
+
+      function beiOnboardingFertig(name, code) {
+        const groupId = saeubereGruppenCode(code);
+        const neuesProfil = { name: name.trim(), code: code.trim(), groupId, deviceId: neueId() };
+        speichereProfil(neuesProfil);
+        setProfil(neuesProfil);
+      }
+
+      async function beiCheckIn(spielplatzName, dauerStunden) {
+        if (!profil) return;
+        const name = spielplatzName.trim();
+        if (!name) return;
+
+        const spielplatzExistiertBereits = spielplaetze.some(
+          (sp) => sp.name.toLowerCase() === name.toLowerCase()
+        );
+        if (!spielplatzExistiertBereits) {
+          await pfadSpielplaetze(profil.groupId).push({ name, addedBy: profil.name });
+        }
+
+        const jetzt = new Date();
+        await pfadCheckins(profil.groupId).child(profil.deviceId).set({
+          name: profil.name,
+          playgroundName: name,
+          checkedInAt: jetzt.toISOString(),
+          expiresAt: new Date(jetzt.getTime() + dauerStunden * 60 * 60 * 1000).toISOString(),
+        });
+        zeigeToast(`Eingecheckt auf ${name}`);
+      }
+
+      async function beiCheckOut() {
+        if (!profil) return;
+        await pfadCheckins(profil.groupId).child(profil.deviceId).remove();
+        zeigeToast("Ausgecheckt");
+      }
+
+      async function beiVerlaengern(stunden) {
+        if (!profil) return;
+        const eigenerCheckin = checkins.find((c) => c.id === profil.deviceId);
+        if (!eigenerCheckin) return;
+        const neuesAblaufdatum = new Date(
+          new Date(eigenerCheckin.expiresAt).getTime() + stunden * 60 * 60 * 1000
+        ).toISOString();
+        await pfadCheckins(profil.groupId).child(profil.deviceId).update({ expiresAt: neuesAblaufdatum });
+        zeigeToast(`+${stunden} Std verlängert`);
+      }
+
+      async function beiSpielplatzHinzufuegen(name) {
+        if (!profil) return;
+        const bereinigt = name.trim();
+        if (!bereinigt) return;
+        if (spielplaetze.some((sp) => sp.name.toLowerCase() === bereinigt.toLowerCase())) {
+          zeigeToast("Gibt es schon");
+          return;
+        }
+        await pfadSpielplaetze(profil.groupId).push({ name: bereinigt, addedBy: profil.name });
+        zeigeToast("Spielplatz hinzugefügt");
+      }
+
+      async function beiSpielplatzEntfernen(id) {
+        if (!profil) return;
+        await pfadSpielplaetze(profil.groupId).child(id).remove();
+      }
+
+      function beiProfilAktualisieren(neuerName, neuerCode) {
+        const neueGroupId = saeubereGruppenCode(neuerCode);
+        const aktualisiertesProfil = { ...profil, name: neuerName, code: neuerCode, groupId: neueGroupId };
+        speichereProfil(aktualisiertesProfil);
+        setProfil(aktualisiertesProfil);
+        zeigeToast("Profil aktualisiert");
+      }
+
+      function beiGruppeVerlassen() {
+        loescheProfil();
+        setProfil(null);
+        setCheckins([]);
+        setSpielplaetze([]);
+        setAktiverTab("live");
+      }
+
+      if (!profilGeladen) {
+        return React.createElement(
+          "div",
+          { className: "flex min-h-screen items-center justify-center bg-stone-50" },
+          React.createElement(Loader2, { size: 24, className: "animate-spin text-emerald-600" })
+        );
+      }
+
+      if (!profil) {
+        return React.createElement(
+          React.Fragment, null,
+          React.createElement(SchriftUndAnimationsStile),
+          React.createElement(OnboardingBildschirm, { onFertig: beiOnboardingFertig })
+        );
+      }
+
+      return React.createElement(
+        "div",
+        { className: "min-h-screen bg-stone-50 font-body text-stone-900" },
+        React.createElement(SchriftUndAnimationsStile),
+        React.createElement(Toast, { nachricht: toastNachricht }),
+        React.createElement(KopfBereich, { gruppenName: profil.code, verbunden }),
+        React.createElement(
+          "main", { className: "pb-28 pt-2" },
+          aktiverTab === "live" && React.createElement(LiveTab, {
+            profil, checkins, spielplaetze,
+            onCheckIn: beiCheckIn, onCheckOut: beiCheckOut, onVerlaengern: beiVerlaengern,
+          }),
+          aktiverTab === "spielplaetze" && React.createElement(SpielplaetzeTab, {
+            spielplaetze, onHinzufuegen: beiSpielplatzHinzufuegen, onEntfernen: beiSpielplatzEntfernen,
+          }),
+          aktiverTab === "ich" && React.createElement(IchTab, {
+            profil, onProfilAktualisieren: beiProfilAktualisieren, onGruppeVerlassen: beiGruppeVerlassen,
+          })
+        ),
+        React.createElement(UntenNavigation, { aktiv: aktiverTab, onWechseln: setAktiverTab })
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(React.createElement(App));
+  </script>
+</body>
+</html>
