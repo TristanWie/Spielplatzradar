@@ -32,6 +32,42 @@
 <body>
   <div id="root"></div>
 
+  <!-- ================================================================
+       SICHTBARER FEHLER-FÄNGER
+       Zeigt JavaScript-Fehler direkt auf dem Bildschirm an, statt nur
+       in der (auf iPad oft nicht zugänglichen) Browser-Konsole. Läuft
+       ganz am Anfang, damit auch Fehler in späteren Scripts (z. B.
+       Firebase, App-Code) sicher aufgefangen werden.
+       ================================================================ -->
+  <script>
+    function zeigeFehlerAufBildschirm(titel, details) {
+      const bestehend = document.getElementById("spielplatzradar-fehleranzeige");
+      if (bestehend) return; // nur den ersten Fehler anzeigen, nicht zuspammen
+      const box = document.createElement("div");
+      box.id = "spielplatzradar-fehleranzeige";
+      box.style.cssText = "position:fixed;inset:0;background:#fff7ed;color:#7c2d12;padding:20px;font-family:monospace;font-size:14px;overflow:auto;z-index:99999;white-space:pre-wrap;line-height:1.5;";
+      box.innerHTML =
+        "<strong style='font-size:16px;'>⚠️ " + titel + "</strong><br><br>" +
+        "<span>" + details + "</span><br><br>" +
+        "<span style='color:#9a3412;'>Das ist der eigentliche Fehlertext - am besten ein Foto davon machen oder abtippen und weitergeben.</span>";
+      document.body.appendChild(box);
+    }
+
+    window.addEventListener("error", function (event) {
+      zeigeFehlerAufBildschirm(
+        "JavaScript-Fehler",
+        (event.message || "Unbekannter Fehler") +
+          "\n\nDatei: " + (event.filename || "?") +
+          "\nZeile: " + (event.lineno || "?") + ", Spalte: " + (event.colno || "?")
+      );
+    });
+
+    window.addEventListener("unhandledrejection", function (event) {
+      const grund = event.reason && event.reason.message ? event.reason.message : String(event.reason);
+      zeigeFehlerAufBildschirm("Fehler bei einer asynchronen Aktion (z. B. Firebase)", grund);
+    });
+  </script>
+
   <!-- React & UI-Bibliotheken via CDN. Kein Babel, kein Build-Schritt -
        der App-Code unten schreibt React.createElement direkt statt JSX. -->
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/react.production.min.js"></script>
@@ -158,7 +194,7 @@
 
     function initialenFuerName(name) {
       const teile = name.trim().split(/\s+/);
-      const erste = teile[0]?.[0] || "?";
+      const erste = (teile[0] && teile[0][0]) || "?";
       const zweite = teile.length > 1 ? teile[teile.length - 1][0] : "";
       return (erste + zweite).toUpperCase();
     }
@@ -686,7 +722,7 @@
           refSpielplaetze.off("value", beiSpielplaetzeAenderung);
           refVerbindung.off("value", beiVerbindungsAenderung);
         };
-      }, [profil?.groupId]);
+      }, [profil ? profil.groupId : null]);
 
       function beiOnboardingFertig(name, code) {
         const groupId = saeubereGruppenCode(code);
@@ -807,6 +843,20 @@
 
     const root = ReactDOM.createRoot(document.getElementById("root"));
     root.render(h(App));
+
+    // Falls nach 5 Sekunden immer noch nichts im #root-Element steht, ist
+    // vermutlich eine CDN-Datei (React/Firebase/Tailwind) nicht geladen -
+    // z. B. durch fehlende Internetverbindung oder einen Blocker.
+    setTimeout(function () {
+      const root = document.getElementById("root");
+      if (root && root.children.length === 0 && !document.getElementById("spielplatzradar-fehleranzeige")) {
+        zeigeFehlerAufBildschirm(
+          "App zeigt nichts an",
+          "Nach 5 Sekunden ist der Inhalt immer noch leer. Mögliche Ursache: eine der externen Dateien (React, Firebase, Tailwind - alle von cdnjs.cloudflare.com bzw. gstatic.com bzw. cdn.tailwindcss.com) konnte nicht geladen werden.\n\nPrüfe: Internetverbindung vorhanden? Kein Inhaltsblocker/Adblocker aktiv, der diese Domains blockiert?"
+        );
+      }
+    }, 5000);
   </script>
 </body>
 </html>
+
