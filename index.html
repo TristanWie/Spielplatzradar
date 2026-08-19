@@ -24,60 +24,67 @@
     html, body { width: 100%; height: 100%; }
     #root { width: 100%; height: 100%; }
     body { background: #fef5f1; font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
+    @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+    .font-display { font-family: 'Quicksand', ui-rounded, system-ui, sans-serif; }
+    .font-body { font-family: 'Inter', system-ui, sans-serif; }
   </style>
 </head>
 <body>
   <div id="root"></div>
 
-  <!-- React & UI-Bibliotheken via CDN -->
+  <!-- React & UI-Bibliotheken via CDN. Kein Babel, kein Build-Schritt -
+       der App-Code unten schreibt React.createElement direkt statt JSX. -->
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/react.production.min.js"></script>
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Firebase (compat-Version, damit wir wie gewohnt mit <script>-Tags arbeiten können) -->
+  <!-- Firebase (compat-Version, funktioniert direkt mit <script>-Tags) -->
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 
   <!-- ================================================================
        FIREBASE-KONFIGURATION
        Diese Werte bekommst du aus der Firebase Console:
-       Projekteinstellungen (Zahnrad oben links) → "Deine Apps" → Web-App
+       Projekteinstellungen (Zahnrad oben links) -> "Deine Apps" -> Web-App
        Siehe README.md, Abschnitt "Firebase einrichten"
        ================================================================ -->
   <script>
     const firebaseConfig = {
-      apiKey: "AIzaSyDrQAgl00srWqt81umtbZJFvSX2i-YAIhw",
-      authDomain: "spielplatzradar.firebaseapp.com",
-      databaseURL: "https://spielplatzradar-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId: "spielplatzradar",
-      storageBucket: "spielplatzradar.firebasestorage.app",
-      messagingSenderId: "80149426398",
-      appId: "1:80149426398:web:f4d3307ef2d61782ce524f",
-      measurementId: "G-9NHC1MKW3Z"
+      apiKey: "DEIN_API_KEY",
+      authDomain: "DEIN_PROJEKT.firebaseapp.com",
+      databaseURL: "https://DEIN_PROJEKT-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "DEIN_PROJEKT",
+      storageBucket: "DEIN_PROJEKT.appspot.com",
+      messagingSenderId: "...",
+      appId: "..."
     };
 
     firebase.initializeApp(firebaseConfig);
     const firebaseDb = firebase.database();
   </script>
 
-  <!-- App Code -->
+  <!-- App Code (reines JavaScript, kein JSX, kein Babel nötig) -->
   <script>
     const { useState, useEffect } = React;
     const {
       MapPin, Navigation, Map, User, Plus, X, LogOut, Users, Trash2, Loader2, Wifi, WifiOff,
     } = lucide;
 
+    // Kurzform fuer React.createElement - spart Tipparbeit, bleibt aber
+    // normales JavaScript (kein Build-Schritt noetig).
+    const h = React.createElement;
+
     /* ============================================================================
      * SPIELPLATZRADAR
-     * Löst folgendes Problem: Familien/Freunde müssen sich nicht mehr einzeln
+     * Loest folgendes Problem: Familien/Freunde muessen sich nicht mehr einzeln
      * anschreiben, um zu sagen "wir sind auf dem Spielplatz X" - stattdessen
      * checkt man kurz ein und alle mit dem gleichen Gruppen-Code sehen es live.
      *
      * DATENHALTUNG:
-     * - Profil (Name, Gruppen-Code, Geräte-ID)  -> localStorage, nur dieses Gerät
-     * - Check-ins & Spielplätze                 -> Firebase Realtime Database,
-     *                                              geteilt innerhalb der Gruppe
+     * - Profil (Name, Gruppen-Code, Geraete-ID)  -> localStorage, nur dieses Geraet
+     * - Check-ins & Spielplaetze                 -> Firebase Realtime Database,
+     *                                               geteilt innerhalb der Gruppe
      *
      * DATENSTRUKTUR IN FIREBASE:
      *   gruppen/
@@ -88,8 +95,8 @@
      *         {autoId}: { name, addedBy }
      *
      * Wichtig: Jeder Check-in liegt unter der eigenen deviceId. Dadurch schreibt
-     * jedes Gerät nur seinen eigenen Knoten - zwei Leute, die gleichzeitig
-     * einchecken, können sich nicht mehr gegenseitig überschreiben.
+     * jedes Geraet nur seinen eigenen Knoten - zwei Leute, die gleichzeitig
+     * einchecken, koennen sich nicht mehr gegenseitig ueberschreiben.
      * ==========================================================================*/
 
     const DAUER_OPTIONEN_STUNDEN = [1, 2, 3, 4];
@@ -155,7 +162,7 @@
       return (erste + zweite).toUpperCase();
     }
 
-    // ---- Profil: lokal auf dem Gerät (localStorage) ----------------------------
+    // ---- Profil: lokal auf dem Geraet (localStorage) ----------------------------
 
     function ladeProfil() {
       try {
@@ -185,7 +192,7 @@
       }
     }
 
-    // ---- Firebase-Pfade für eine Gruppe -----------------------------------------
+    // ---- Firebase-Pfade fuer eine Gruppe -----------------------------------------
 
     function pfadCheckins(groupId) {
       return firebaseDb.ref(`gruppen/${groupId}/checkins`);
@@ -201,63 +208,76 @@
       return Object.entries(objekt).map(([id, wert]) => ({ id, ...wert }));
     }
 
-    // UI Komponenten -------------------------------------------------------------
+    // ============================================================================
+    // UI Komponenten - jede Komponente ist eine Funktion, die mit h() (=
+    // React.createElement) ein Element-Baum zurueckgibt: h(typ, props, ...kinder)
+    // ============================================================================
 
     function Toast({ nachricht }) {
-      return nachricht ? (
-        <div className="fixed bottom-32 left-1/2 -translate-x-1/2 bg-stone-800 text-white px-4 py-2 rounded-full text-sm shadow-lg z-50">
-          {nachricht}
-        </div>
-      ) : null;
+      if (!nachricht) return null;
+      return h(
+        "div",
+        { className: "fixed bottom-32 left-1/2 -translate-x-1/2 bg-stone-800 text-white px-4 py-2 rounded-full text-sm shadow-lg z-50" },
+        nachricht
+      );
     }
 
     function KopfBereich({ gruppenName, verbunden }) {
-      return (
-        <header className="bg-white border-b border-stone-200 pt-safe">
-          <div className="px-4 py-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <div className="text-emerald-600">
-                <MapPin size={24} />
-              </div>
-              <div>
-                <h1 className="font-display font-bold text-lg text-stone-900">Spielplatzradar</h1>
-                <p className="text-xs text-stone-500">{gruppenName}</p>
-              </div>
-            </div>
-            <div
-              className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+      return h(
+        "header",
+        { className: "bg-white border-b border-stone-200 pt-safe" },
+        h(
+          "div",
+          { className: "px-4 py-3 flex items-center justify-between gap-3" },
+          h(
+            "div",
+            { className: "flex items-center gap-2" },
+            h("div", { className: "text-emerald-600" }, h(MapPin, { size: 24 })),
+            h(
+              "div",
+              null,
+              h("h1", { className: "font-display font-bold text-lg text-stone-900" }, "Spielplatzradar"),
+              h("p", { className: "text-xs text-stone-500" }, gruppenName)
+            )
+          ),
+          h(
+            "div",
+            {
+              className: `flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
                 verbunden ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-500"
-              }`}
-              title={verbunden ? "Live verbunden" : "Verbindung wird aufgebaut..."}
-            >
-              {verbunden ? <Wifi size={14} /> : <WifiOff size={14} />}
-              {verbunden ? "Live" : "..."}
-            </div>
-          </div>
-        </header>
+              }`,
+              title: verbunden ? "Live verbunden" : "Verbindung wird aufgebaut...",
+            },
+            h(verbunden ? Wifi : WifiOff, { size: 14 }),
+            verbunden ? "Live" : "..."
+          )
+        )
       );
     }
 
     function UntenNavigation({ aktiv, onWechseln }) {
-      return (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 pb-safe flex justify-around">
-          {[
-            { id: "live", label: "Live", icon: Navigation },
-            { id: "spielplaetze", label: "Spielplätze", icon: Map },
-            { id: "ich", label: "Ich", icon: User },
-          ].map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => onWechseln(id)}
-              className={`flex-1 py-4 flex flex-col items-center gap-1 font-body text-xs transition-colors ${
+      const tabs = [
+        { id: "live", label: "Live", icon: Navigation },
+        { id: "spielplaetze", label: "Spielplätze", icon: Map },
+        { id: "ich", label: "Ich", icon: User },
+      ];
+      return h(
+        "nav",
+        { className: "fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 pb-safe flex justify-around" },
+        tabs.map(({ id, label, icon: Icon }) =>
+          h(
+            "button",
+            {
+              key: id,
+              onClick: () => onWechseln(id),
+              className: `flex-1 py-4 flex flex-col items-center gap-1 font-body text-xs transition-colors ${
                 aktiv === id ? "text-emerald-600 border-t-2 border-emerald-600" : "text-stone-500"
-              }`}
-            >
-              <Icon size={24} />
-              {label}
-            </button>
-          ))}
-        </nav>
+              }`,
+            },
+            h(Icon, { size: 24 }),
+            label
+          )
+        )
       );
     }
 
@@ -265,49 +285,54 @@
       const [name, setName] = useState("");
       const [code, setCode] = useState("");
 
-      return (
-        <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-stone-50 flex flex-col items-center justify-center px-6 py-8 gap-8">
-          <div className="text-center gap-2 flex flex-col">
-            <div className="text-emerald-600 mx-auto mb-4">
-              <MapPin size={48} />
-            </div>
-            <h1 className="font-display text-3xl font-bold text-stone-900">Spielplatzradar</h1>
-            <p className="text-stone-600 text-sm">Schau, wer gerade im Park ist</p>
-          </div>
-
-          <div className="w-full max-w-sm space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-stone-700 mb-2">Dein Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="z. B. Anna"
-                className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-stone-700 mb-2">Gruppen-Code</label>
-              <input
-                type="text"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="z. B. Familie Müller"
-                className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-              <p className="text-xs text-stone-500 mt-2">Alle mit dem gleichen Code sehen sich gegenseitig</p>
-            </div>
-
-            <button
-              onClick={() => { if (name.trim() && code.trim()) onFertig(name, code); }}
-              disabled={!name.trim() || !code.trim()}
-              className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-700 transition-colors"
-            >
-              Los geht's
-            </button>
-          </div>
-        </div>
+      return h(
+        "div",
+        { className: "min-h-screen bg-gradient-to-b from-emerald-50 to-stone-50 flex flex-col items-center justify-center px-6 py-8 gap-8" },
+        h(
+          "div",
+          { className: "text-center gap-2 flex flex-col" },
+          h("div", { className: "text-emerald-600 mx-auto mb-4" }, h(MapPin, { size: 48 })),
+          h("h1", { className: "font-display text-3xl font-bold text-stone-900" }, "Spielplatzradar"),
+          h("p", { className: "text-stone-600 text-sm" }, "Schau, wer gerade im Park ist")
+        ),
+        h(
+          "div",
+          { className: "w-full max-w-sm space-y-4" },
+          h(
+            "div",
+            null,
+            h("label", { className: "block text-sm font-medium text-stone-700 mb-2" }, "Dein Name"),
+            h("input", {
+              type: "text",
+              value: name,
+              onChange: (e) => setName(e.target.value),
+              placeholder: "z. B. Anna",
+              className: "w-full px-4 py-3 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500",
+            })
+          ),
+          h(
+            "div",
+            null,
+            h("label", { className: "block text-sm font-medium text-stone-700 mb-2" }, "Gruppen-Code"),
+            h("input", {
+              type: "text",
+              value: code,
+              onChange: (e) => setCode(e.target.value),
+              placeholder: "z. B. Familie Müller",
+              className: "w-full px-4 py-3 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500",
+            }),
+            h("p", { className: "text-xs text-stone-500 mt-2" }, "Alle mit dem gleichen Code sehen sich gegenseitig")
+          ),
+          h(
+            "button",
+            {
+              onClick: () => { if (name.trim() && code.trim()) onFertig(name, code); },
+              disabled: !name.trim() || !code.trim(),
+              className: "w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-700 transition-colors",
+            },
+            "Los geht's"
+          )
+        )
       );
     }
 
@@ -331,176 +356,232 @@
         }
       };
 
-      return (
-        <div className="space-y-6 px-4 py-4">
-          {!eigenerCheckin && (
-            <div className="space-y-4 bg-white p-4 rounded-lg border border-stone-200">
-              <div>
-                <label className="block text-sm font-medium text-stone-700 mb-2">Spielplatz</label>
-                <select
-                  value={ausgewaehlteterSpielplatz}
-                  onChange={(e) => setAusgewaehlterSpielplatz(e.target.value)}
-                  className="w-full px-4 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="">-- Auswählen oder neuer Name --</option>
-                  {spielplaetze.map((sp) => (
-                    <option key={sp.id} value={sp.name}>{sp.name}</option>
-                  ))}
-                </select>
-              </div>
+      const kinder = [];
 
-              {!ausgewaehlteterSpielplatz && (
-                <input
-                  type="text"
-                  value={freiText}
-                  onChange={(e) => setFreiText(e.target.value)}
-                  placeholder="Oder hier einen neuen Namen eingeben"
-                  className="w-full px-4 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-stone-700 mb-2">Wie lange?</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {DAUER_OPTIONEN_STUNDEN.map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => setSelectedDuration(d)}
-                      className={`py-2 rounded-lg font-semibold transition-colors ${
+      if (!eigenerCheckin) {
+        kinder.push(
+          h(
+            "div",
+            { key: "einchecken-formular", className: "space-y-4 bg-white p-4 rounded-lg border border-stone-200" },
+            h(
+              "div",
+              null,
+              h("label", { className: "block text-sm font-medium text-stone-700 mb-2" }, "Spielplatz"),
+              h(
+                "select",
+                {
+                  value: ausgewaehlteterSpielplatz,
+                  onChange: (e) => setAusgewaehlterSpielplatz(e.target.value),
+                  className: "w-full px-4 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500",
+                },
+                h("option", { value: "" }, "-- Auswählen oder neuer Name --"),
+                spielplaetze.map((sp) => h("option", { key: sp.id, value: sp.name }, sp.name))
+              )
+            ),
+            !ausgewaehlteterSpielplatz &&
+              h("input", {
+                type: "text",
+                value: freiText,
+                onChange: (e) => setFreiText(e.target.value),
+                placeholder: "Oder hier einen neuen Namen eingeben",
+                className: "w-full px-4 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500",
+              }),
+            h(
+              "div",
+              null,
+              h("label", { className: "block text-sm font-medium text-stone-700 mb-2" }, "Wie lange?"),
+              h(
+                "div",
+                { className: "grid grid-cols-4 gap-2" },
+                DAUER_OPTIONEN_STUNDEN.map((d) =>
+                  h(
+                    "button",
+                    {
+                      key: d,
+                      onClick: () => setSelectedDuration(d),
+                      className: `py-2 rounded-lg font-semibold transition-colors ${
                         selectedDuration === d ? "bg-emerald-600 text-white" : "bg-stone-100 text-stone-700 hover:bg-stone-200"
-                      }`}
-                    >
-                      {d}h
-                    </button>
-                  ))}
-                </div>
-              </div>
+                      }`,
+                    },
+                    `${d}h`
+                  )
+                )
+              )
+            ),
+            h(
+              "button",
+              {
+                onClick: handleCheckIn,
+                disabled: !(ausgewaehlteterSpielplatz || freiText),
+                className: "w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold disabled:opacity-50 hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2",
+              },
+              h(Plus, { size: 20 }),
+              "Einchecken"
+            )
+          )
+        );
+      }
 
-              <button
-                onClick={handleCheckIn}
-                disabled={!(ausgewaehlteterSpielplatz || freiText)}
-                className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold disabled:opacity-50 hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
-              >
-                <Plus size={20} />
-                Einchecken
-              </button>
-            </div>
-          )}
+      if (eigenerCheckin) {
+        kinder.push(
+          h(
+            "div",
+            { key: "eigener-checkin", className: "bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 rounded-lg border-2 border-emerald-600" },
+            h(
+              "div",
+              { className: "flex items-start justify-between gap-4 mb-4" },
+              h(
+                "div",
+                null,
+                h("p", { className: "text-sm text-emerald-700 font-medium" }, "Du bist auf"),
+                h("h2", { className: "font-display text-2xl font-bold text-emerald-900" }, eigenerCheckin.playgroundName),
+                h("p", { className: "text-xs text-emerald-600 mt-1" }, formatiereVerbleibendeZeit(eigenerCheckin.expiresAt))
+              ),
+              h(
+                "button",
+                { onClick: onCheckOut, className: "p-2 bg-white rounded-lg hover:bg-stone-100 transition-colors" },
+                h(X, { size: 20, className: "text-red-600" })
+              )
+            ),
+            h(
+              "div",
+              { className: "space-y-2" },
+              h("div", { className: "text-xs text-emerald-700 font-medium mb-3" }, "Verlängern um:"),
+              h(
+                "div",
+                { className: "grid grid-cols-4 gap-2" },
+                [1, 2, 3, 4].map((d) =>
+                  h(
+                    "button",
+                    {
+                      key: d,
+                      onClick: () => onVerlaengern(d),
+                      className: "py-2 bg-white text-emerald-700 rounded-lg font-semibold text-sm hover:bg-emerald-50 transition-colors",
+                    },
+                    `+${d}h`
+                  )
+                )
+              )
+            )
+          )
+        );
+      }
 
-          {eigenerCheckin && (
-            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 rounded-lg border-2 border-emerald-600">
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div>
-                  <p className="text-sm text-emerald-700 font-medium">Du bist auf</p>
-                  <h2 className="font-display text-2xl font-bold text-emerald-900">{eigenerCheckin.playgroundName}</h2>
-                  <p className="text-xs text-emerald-600 mt-1">{formatiereVerbleibendeZeit(eigenerCheckin.expiresAt)}</p>
-                </div>
-                <button onClick={onCheckOut} className="p-2 bg-white rounded-lg hover:bg-stone-100 transition-colors">
-                  <X size={20} className="text-red-600" />
-                </button>
-              </div>
+      if (andereAktiveCheckins.length > 0) {
+        kinder.push(
+          h(
+            "div",
+            { key: "wer-ist-da", className: "space-y-3" },
+            h(
+              "h3",
+              { className: "font-semibold text-stone-900 flex items-center gap-2" },
+              h(Users, { size: 18 }),
+              "Wer ist noch da?"
+            ),
+            h(
+              "div",
+              { className: "space-y-2" },
+              andereAktiveCheckins.map((checkin) => {
+                const farbe = farbeFuerName(checkin.name);
+                const initiale = initialenFuerName(checkin.name);
+                return h(
+                  "div",
+                  { key: checkin.id, className: "bg-white p-3 rounded-lg border border-stone-200" },
+                  h(
+                    "div",
+                    { className: "flex items-center gap-3" },
+                    h(
+                      "div",
+                      { className: `w-12 h-12 rounded-full ${farbe.bg} ${farbe.text} flex items-center justify-center font-semibold` },
+                      initiale
+                    ),
+                    h(
+                      "div",
+                      { className: "flex-1 min-w-0" },
+                      h("p", { className: "font-medium text-stone-900" }, checkin.name),
+                      h("p", { className: "text-xs text-stone-500" }, checkin.playgroundName),
+                      h("p", { className: "text-xs text-stone-400" }, formatiereVergangeneZeit(checkin.checkedInAt))
+                    )
+                  )
+                );
+              })
+            )
+          )
+        );
+      }
 
-              <div className="space-y-2">
-                <div className="text-xs text-emerald-700 font-medium mb-3">Verlängern um:</div>
-                <div className="grid grid-cols-4 gap-2">
-                  {[1, 2, 3, 4].map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => onVerlaengern(d)}
-                      className="py-2 bg-white text-emerald-700 rounded-lg font-semibold text-sm hover:bg-emerald-50 transition-colors"
-                    >
-                      +{d}h
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+      if (andereAktiveCheckins.length === 0 && !eigenerCheckin) {
+        kinder.push(
+          h(
+            "div",
+            { key: "leer-hinweis", className: "text-center py-8 text-stone-500" },
+            h(MapPin, { size: 32, className: "mx-auto mb-2 opacity-50" }),
+            h("p", { className: "text-sm" }, "Noch niemand eingecheckt")
+          )
+        );
+      }
 
-          {andereAktiveCheckins.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="font-semibold text-stone-900 flex items-center gap-2">
-                <Users size={18} />
-                Wer ist noch da?
-              </h3>
-              <div className="space-y-2">
-                {andereAktiveCheckins.map((checkin) => {
-                  const farbe = farbeFuerName(checkin.name);
-                  const initiale = initialenFuerName(checkin.name);
-                  return (
-                    <div key={checkin.id} className="bg-white p-3 rounded-lg border border-stone-200">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-12 h-12 rounded-full ${farbe.bg} ${farbe.text} flex items-center justify-center font-semibold`}>
-                          {initiale}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-stone-900">{checkin.name}</p>
-                          <p className="text-xs text-stone-500">{checkin.playgroundName}</p>
-                          <p className="text-xs text-stone-400">{formatiereVergangeneZeit(checkin.checkedInAt)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {andereAktiveCheckins.length === 0 && !eigenerCheckin && (
-            <div className="text-center py-8 text-stone-500">
-              <MapPin size={32} className="mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Noch niemand eingecheckt</p>
-            </div>
-          )}
-        </div>
-      );
+      return h("div", { className: "space-y-6 px-4 py-4" }, ...kinder);
     }
 
     function SpielplaetzeTab({ spielplaetze, onHinzufuegen, onEntfernen }) {
       const [neuer, setNeuer] = useState("");
 
-      return (
-        <div className="space-y-4 px-4 py-4">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={neuer}
-              onChange={(e) => setNeuer(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === "Enter" && neuer.trim()) { onHinzufuegen(neuer); setNeuer(""); }
-              }}
-              placeholder="Neuer Spielplatz..."
-              className="flex-1 px-4 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-            <button
-              onClick={() => { if (neuer.trim()) { onHinzufuegen(neuer); setNeuer(""); } }}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-            >
-              <Plus size={20} />
-            </button>
-          </div>
+      const absenden = () => {
+        if (neuer.trim()) {
+          onHinzufuegen(neuer);
+          setNeuer("");
+        }
+      };
 
-          <div className="space-y-2">
-            {spielplaetze.map((sp) => (
-              <div key={sp.id} className="bg-white p-3 rounded-lg border border-stone-200 flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="font-medium text-stone-900">{sp.name}</p>
-                  <p className="text-xs text-stone-400">hinzugefügt von {sp.addedBy}</p>
-                </div>
-                <button onClick={() => onEntfernen(sp.id)} className="p-2 hover:bg-red-50 rounded-lg transition-colors">
-                  <Trash2 size={18} className="text-red-500" />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {spielplaetze.length === 0 && (
-            <div className="text-center py-8 text-stone-500">
-              <Map size={32} className="mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Noch keine Spielplätze hinzugefügt</p>
-            </div>
-          )}
-        </div>
+      return h(
+        "div",
+        { className: "space-y-4 px-4 py-4" },
+        h(
+          "div",
+          { className: "flex gap-2" },
+          h("input", {
+            type: "text",
+            value: neuer,
+            onChange: (e) => setNeuer(e.target.value),
+            onKeyPress: (e) => { if (e.key === "Enter") absenden(); },
+            placeholder: "Neuer Spielplatz...",
+            className: "flex-1 px-4 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500",
+          }),
+          h(
+            "button",
+            { onClick: absenden, className: "px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors" },
+            h(Plus, { size: 20 })
+          )
+        ),
+        h(
+          "div",
+          { className: "space-y-2" },
+          spielplaetze.map((sp) =>
+            h(
+              "div",
+              { key: sp.id, className: "bg-white p-3 rounded-lg border border-stone-200 flex items-center justify-between" },
+              h(
+                "div",
+                { className: "flex-1" },
+                h("p", { className: "font-medium text-stone-900" }, sp.name),
+                h("p", { className: "text-xs text-stone-400" }, `hinzugefügt von ${sp.addedBy}`)
+              ),
+              h(
+                "button",
+                { onClick: () => onEntfernen(sp.id), className: "p-2 hover:bg-red-50 rounded-lg transition-colors" },
+                h(Trash2, { size: 18, className: "text-red-500" })
+              )
+            )
+          )
+        ),
+        spielplaetze.length === 0 &&
+          h(
+            "div",
+            { className: "text-center py-8 text-stone-500" },
+            h(Map, { size: 32, className: "mx-auto mb-2 opacity-50" }),
+            h("p", { className: "text-sm" }, "Noch keine Spielplätze hinzugefügt")
+          )
       );
     }
 
@@ -508,57 +589,58 @@
       const [name, setName] = useState(profil.name);
       const [code, setCode] = useState(profil.code);
 
-      return (
-        <div className="space-y-4 px-4 py-4">
-          <div className="bg-white p-4 rounded-lg border border-stone-200 space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-stone-700 mb-2">Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-stone-700 mb-2">Gruppen-Code</label>
-              <input
-                type="text"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                className="w-full px-4 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            <button
-              onClick={() => onProfilAktualisieren(name, code)}
-              className="w-full bg-emerald-600 text-white py-2 rounded-lg hover:bg-emerald-700 transition-colors font-semibold"
-            >
-              Speichern
-            </button>
-          </div>
-
-          <button
-            onClick={onGruppeVerlassen}
-            className="w-full bg-red-50 text-red-600 py-3 rounded-lg hover:bg-red-100 transition-colors font-semibold flex items-center justify-center gap-2"
-          >
-            <LogOut size={20} />
-            Gruppe verlassen
-          </button>
-        </div>
+      return h(
+        "div",
+        { className: "space-y-4 px-4 py-4" },
+        h(
+          "div",
+          { className: "bg-white p-4 rounded-lg border border-stone-200 space-y-3" },
+          h(
+            "div",
+            null,
+            h("label", { className: "block text-sm font-medium text-stone-700 mb-2" }, "Name"),
+            h("input", {
+              type: "text",
+              value: name,
+              onChange: (e) => setName(e.target.value),
+              className: "w-full px-4 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500",
+            })
+          ),
+          h(
+            "div",
+            null,
+            h("label", { className: "block text-sm font-medium text-stone-700 mb-2" }, "Gruppen-Code"),
+            h("input", {
+              type: "text",
+              value: code,
+              onChange: (e) => setCode(e.target.value),
+              className: "w-full px-4 py-2 border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500",
+            })
+          ),
+          h(
+            "button",
+            {
+              onClick: () => onProfilAktualisieren(name, code),
+              className: "w-full bg-emerald-600 text-white py-2 rounded-lg hover:bg-emerald-700 transition-colors font-semibold",
+            },
+            "Speichern"
+          )
+        ),
+        h(
+          "button",
+          {
+            onClick: onGruppeVerlassen,
+            className: "w-full bg-red-50 text-red-600 py-3 rounded-lg hover:bg-red-100 transition-colors font-semibold flex items-center justify-center gap-2",
+          },
+          h(LogOut, { size: 20 }),
+          "Gruppe verlassen"
+        )
       );
     }
 
-    function SchriftUndAnimationsStile() {
-      return React.createElement("style", null, `
-        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
-        .font-display { font-family: 'Quicksand', ui-rounded, system-ui, sans-serif; }
-        .font-body { font-family: 'Inter', system-ui, sans-serif; }
-      `);
-    }
-
-    // Hauptapp ---------------------------------------------------------------
+    // ============================================================================
+    // Hauptapp
+    // ============================================================================
 
     function App() {
       const [profil, setProfil] = useState(null);
@@ -581,8 +663,8 @@
       }, []);
 
       // Sobald ein Profil (und damit eine Gruppe) bekannt ist: live auf
-      // Firebase hören. onValue feuert sofort mit dem aktuellen Stand und
-      // danach bei jeder Änderung - kein Polling mehr nötig.
+      // Firebase hoeren. onValue feuert sofort mit dem aktuellen Stand und
+      // danach bei jeder Aenderung - kein Polling mehr noetig.
       useEffect(() => {
         if (!profil) return;
 
@@ -685,46 +767,45 @@
       }
 
       if (!profilGeladen) {
-        return React.createElement(
+        return h(
           "div",
           { className: "flex min-h-screen items-center justify-center bg-stone-50" },
-          React.createElement(Loader2, { size: 24, className: "animate-spin text-emerald-600" })
+          h(Loader2, { size: 24, className: "animate-spin text-emerald-600" })
         );
       }
 
       if (!profil) {
-        return React.createElement(
-          React.Fragment, null,
-          React.createElement(SchriftUndAnimationsStile),
-          React.createElement(OnboardingBildschirm, { onFertig: beiOnboardingFertig })
-        );
+        return h(OnboardingBildschirm, { onFertig: beiOnboardingFertig });
       }
 
-      return React.createElement(
+      return h(
         "div",
         { className: "min-h-screen bg-stone-50 font-body text-stone-900" },
-        React.createElement(SchriftUndAnimationsStile),
-        React.createElement(Toast, { nachricht: toastNachricht }),
-        React.createElement(KopfBereich, { gruppenName: profil.code, verbunden }),
-        React.createElement(
-          "main", { className: "pb-28 pt-2" },
-          aktiverTab === "live" && React.createElement(LiveTab, {
-            profil, checkins, spielplaetze,
-            onCheckIn: beiCheckIn, onCheckOut: beiCheckOut, onVerlaengern: beiVerlaengern,
-          }),
-          aktiverTab === "spielplaetze" && React.createElement(SpielplaetzeTab, {
-            spielplaetze, onHinzufuegen: beiSpielplatzHinzufuegen, onEntfernen: beiSpielplatzEntfernen,
-          }),
-          aktiverTab === "ich" && React.createElement(IchTab, {
-            profil, onProfilAktualisieren: beiProfilAktualisieren, onGruppeVerlassen: beiGruppeVerlassen,
-          })
+        h(Toast, { nachricht: toastNachricht }),
+        h(KopfBereich, { gruppenName: profil.code, verbunden }),
+        h(
+          "main",
+          { className: "pb-28 pt-2" },
+          aktiverTab === "live" &&
+            h(LiveTab, {
+              profil, checkins, spielplaetze,
+              onCheckIn: beiCheckIn, onCheckOut: beiCheckOut, onVerlaengern: beiVerlaengern,
+            }),
+          aktiverTab === "spielplaetze" &&
+            h(SpielplaetzeTab, {
+              spielplaetze, onHinzufuegen: beiSpielplatzHinzufuegen, onEntfernen: beiSpielplatzEntfernen,
+            }),
+          aktiverTab === "ich" &&
+            h(IchTab, {
+              profil, onProfilAktualisieren: beiProfilAktualisieren, onGruppeVerlassen: beiGruppeVerlassen,
+            })
         ),
-        React.createElement(UntenNavigation, { aktiv: aktiverTab, onWechseln: setAktiverTab })
+        h(UntenNavigation, { aktiv: aktiverTab, onWechseln: setAktiverTab })
       );
     }
 
     const root = ReactDOM.createRoot(document.getElementById("root"));
-    root.render(React.createElement(App));
+    root.render(h(App));
   </script>
 </body>
 </html>
