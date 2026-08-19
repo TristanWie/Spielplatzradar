@@ -10,11 +10,12 @@
 // ============================================================================
 
 const firebaseConfig = {
-  apiKey: "DEIN_API_KEY",
-  authDomain: "DEIN_PROJEKT.firebaseapp.com",
-  databaseURL: "https://DEIN_PROJEKT-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "DEIN_PROJEKT",
-  storageBucket: "DEIN_PROJEKT.appspot.com",
-  messagingSenderId: "...",
-  appId: "..."
+  apiKey: "AIzaSyDrQAgl00srWqt81umtbZJFvSX2i-YAIhw",
+  authDomain: "spielplatzradar.firebaseapp.com",
+  databaseURL: "https://spielplatzradar-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "spielplatzradar",
+  storageBucket: "spielplatzradar.firebasestorage.app",
+  messagingSenderId: "80149426398",
+  appId: "1:80149426398:web:f4d3307ef2d61782ce524f",
+  measurementId: "G-9NHC1MKW3Z"
 };
