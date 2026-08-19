@@ -70,33 +70,20 @@
 
   <!-- React & UI-Bibliotheken via CDN. Kein Babel, kein Build-Schritt -
        der App-Code unten schreibt React.createElement direkt statt JSX. -->
-  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/react.production.min.js"></script>
-  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/react-dom.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+  <script crossorigin src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.1/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 
   <!-- Firebase (compat-Version, funktioniert direkt mit <script>-Tags) -->
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 
-  <!-- ================================================================
-       FIREBASE-KONFIGURATION
-       Diese Werte bekommst du aus der Firebase Console:
-       Projekteinstellungen (Zahnrad oben links) -> "Deine Apps" -> Web-App
-       Siehe README.md, Abschnitt "Firebase einrichten"
-       ================================================================ -->
+  <!-- Deine persönlichen Firebase-Zugangsdaten stehen in einer eigenen Datei
+       (firebase-config.js), damit du sie nicht bei jedem index.html-Update
+       neu eintragen musst. -->
+  <script src="./firebase-config.js"></script>
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyDrQAgl00srWqt81umtbZJFvSX2i-YAIhw",
-      authDomain: "spielplatzradar.firebaseapp.com",
-      databaseURL: "https://spielplatzradar-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId: "spielplatzradar",
-      storageBucket: "spielplatzradar.firebasestorage.app",
-      messagingSenderId: "80149426398",
-      appId: "1:80149426398:web:f4d3307ef2d61782ce524f",
-      measurementId: "G-9NHC1MKW3Z"
-    };
-
     firebase.initializeApp(firebaseConfig);
     const firebaseDb = firebase.database();
   </script>
@@ -852,11 +839,10 @@
       if (root && root.children.length === 0 && !document.getElementById("spielplatzradar-fehleranzeige")) {
         zeigeFehlerAufBildschirm(
           "App zeigt nichts an",
-          "Nach 5 Sekunden ist der Inhalt immer noch leer. Mögliche Ursache: eine der externen Dateien (React, Firebase, Tailwind - alle von cdnjs.cloudflare.com bzw. gstatic.com bzw. cdn.tailwindcss.com) konnte nicht geladen werden.\n\nPrüfe: Internetverbindung vorhanden? Kein Inhaltsblocker/Adblocker aktiv, der diese Domains blockiert?"
+          "Nach 5 Sekunden ist der Inhalt immer noch leer. Mögliche Ursache: eine der externen Dateien (React, Firebase, Tailwind - von cdn.jsdelivr.net bzw. gstatic.com bzw. cdn.tailwindcss.com) konnte nicht geladen werden.\n\nPrüfe: Internetverbindung vorhanden? Kein Inhaltsblocker/Adblocker aktiv, der diese Domains blockiert?"
         );
       }
     }, 5000);
   </script>
 </body>
 </html>
-
