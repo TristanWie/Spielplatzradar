@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Spielplatzradar" />
+  <link rel="apple-touch-icon" href="./assets/icon-180.png" />
+  <meta name="theme-color" content="#fef5f1" />
+  <link rel="manifest" href="./manifest.json" />
+
+  <title>Spielplatzradar - Live</title>
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <div class="seite">
+
+    <header class="kopfbereich">
+      <div class="kopfbereich-titel">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" style="color:var(--farbe-primaer)">
+          <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0Z" />
+          <circle cx="12" cy="10" r="3" />
+        </svg>
+        <div>
+          <h1>Spielplatzradar</h1>
+          <p id="gruppenname"></p>
+        </div>
+      </div>
+      <span id="verbindungsstatus" class="verbindungsstatus">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20h.01" /><path d="M2 8.82a15 15 0 0 1 20 0" />
+          <path d="M5 12.859a10 10 0 0 1 14 0" /><path d="M8.5 16.429a5 5 0 0 1 7 0" />
+        </svg>
+        ...
+      </span>
+    </header>
+
+    <main class="hauptbereich">
+      <div id="inhalt" class="stapel"></div>
+    </main>
+
+    <nav class="untere-navigation">
+      <a href="./live.html" class="nav-eintrag" data-tab="live">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 19-9-9 19-2-8-8-2Z" /></svg>
+        Live
+      </a>
+      <a href="./spielplaetze.html" class="nav-eintrag" data-tab="spielplaetze">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z" /><path d="M15 5.764v15" /><path d="M9 3.236v15" /></svg>
+        Spielplätze
+      </a>
+      <a href="./ich.html" class="nav-eintrag" data-tab="ich">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+        Ich
+      </a>
+    </nav>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+  <script src="./firebase-config.js"></script>
+  <script src="./js/gemeinsam.js"></script>
+  <script src="./js/live.js"></script>
+</body>
+</html>

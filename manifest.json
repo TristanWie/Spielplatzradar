@@ -2,7 +2,7 @@
   "name": "Spielplatzradar",
   "short_name": "Spielplatzradar",
   "description": "Echtzeitkoordinierung mit Freunden auf dem Spielplatz",
-  "start_url": "/spielplatzradar/",
+  "start_url": "/spielplatzradar/index.html",
   "scope": "/spielplatzradar/",
   "display": "standalone",
   "orientation": "portrait",
@@ -26,13 +26,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "./assets/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
     }
   ],
   "categories": [

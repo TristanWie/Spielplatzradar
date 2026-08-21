@@ -1,0 +1,378 @@
+/* ============================================================================
+   SPIELPLATZRADAR - Stylesheet
+   Kein Tailwind, kein Build-Schritt - reines CSS mit Custom Properties (Variablen).
+   Struktur: 1) Variablen  2) Basis/Reset  3) Layout  4) Komponenten  5) Utilities
+   ============================================================================ */
+
+:root {
+  --farbe-hintergrund: #fef5f1;
+  --farbe-flaeche: #ffffff;
+  --farbe-rand: #e7e5e4;
+
+  --farbe-primaer: #059669;
+  --farbe-primaer-dunkel: #047857;
+  --farbe-primaer-hell: #ecfdf5;
+
+  --farbe-text: #1c1917;
+  --farbe-text-gedaempft: #78716c;
+  --farbe-text-schwach: #a8a29e;
+
+  --farbe-fehler: #dc2626;
+  --farbe-fehler-hell: #fef2f2;
+
+  --schrift-anzeige: 'Quicksand', ui-rounded, system-ui, sans-serif;
+  --schrift-text: 'Inter', system-ui, -apple-system, sans-serif;
+
+  --radius: 12px;
+  --radius-klein: 8px;
+  --abstand-seite: 16px;
+}
+
+/* ---- Reset / Basis -------------------------------------------------------- */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  background: var(--farbe-hintergrund);
+  color: var(--farbe-text);
+  font-family: var(--schrift-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { font-family: var(--schrift-anzeige); font-weight: 700; }
+
+button, input, select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+input, select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--farbe-rand);
+  border-radius: var(--radius-klein);
+  background: var(--farbe-flaeche);
+}
+
+input:focus, select:focus {
+  outline: 2px solid var(--farbe-primaer);
+  outline-offset: -1px;
+}
+
+label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: #44403c;
+}
+
+/* ---- Layout ---------------------------------------------------------------- */
+
+.seite {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.kopfbereich {
+  background: var(--farbe-flaeche);
+  border-bottom: 1px solid var(--farbe-rand);
+  padding: 12px var(--abstand-seite);
+  padding-top: max(12px, env(safe-area-inset-top));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kopfbereich-titel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kopfbereich-titel h1 {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.kopfbereich-titel p {
+  font-size: 12px;
+  color: var(--farbe-text-gedaempft);
+}
+
+.hauptbereich {
+  flex: 1;
+  padding: 16px var(--abstand-seite) 100px;
+  max-width: 480px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.untere-navigation {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--farbe-flaeche);
+  border-top: 1px solid var(--farbe-rand);
+  padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+}
+
+.nav-eintrag {
+  flex: 1;
+  padding: 14px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--farbe-text-schwach);
+  border-top: 2px solid transparent;
+}
+
+.nav-eintrag.aktiv {
+  color: var(--farbe-primaer);
+  border-top-color: var(--farbe-primaer);
+}
+
+/* ---- Komponenten ------------------------------------------------------------ */
+
+.karte {
+  background: var(--farbe-flaeche);
+  border: 1px solid var(--farbe-rand);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.karte + .karte { margin-top: 12px; }
+
+.stapel { display: flex; flex-direction: column; gap: 16px; }
+.stapel-klein { display: flex; flex-direction: column; gap: 8px; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: var(--radius-klein);
+  font-weight: 600;
+  transition: background-color .15s ease;
+}
+
+.btn-primaer {
+  background: var(--farbe-primaer);
+  color: white;
+  width: 100%;
+}
+.btn-primaer:hover { background: var(--farbe-primaer-dunkel); }
+.btn-primaer:disabled { opacity: .5; cursor: not-allowed; }
+
+.btn-sekundaer {
+  background: #f5f5f4;
+  color: #44403c;
+}
+.btn-sekundaer:hover { background: #e7e5e4; }
+
+.btn-gefahr {
+  background: var(--farbe-fehler-hell);
+  color: var(--farbe-fehler);
+  width: 100%;
+}
+.btn-gefahr:hover { background: #fee2e2; }
+
+.btn-icon {
+  padding: 8px;
+  border-radius: var(--radius-klein);
+}
+.btn-icon:hover { background: #f5f5f4; }
+
+.dauer-raster {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.dauer-knopf {
+  padding: 10px 0;
+  border-radius: var(--radius-klein);
+  background: #f5f5f4;
+  font-weight: 600;
+  text-align: center;
+}
+.dauer-knopf.aktiv {
+  background: var(--farbe-primaer);
+  color: white;
+}
+
+.eigener-checkin {
+  background: linear-gradient(to bottom right, var(--farbe-primaer-hell), #d1fae5);
+  border: 2px solid var(--farbe-primaer);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.eigener-checkin-kopf {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.eigener-checkin .label { font-size: 13px; color: var(--farbe-primaer-dunkel); font-weight: 500; }
+.eigener-checkin h2 { font-size: 22px; color: #064e3b; }
+.eigener-checkin .zeit { font-size: 12px; color: var(--farbe-primaer-dunkel); margin-top: 2px; }
+
+.teilnehmer-eintrag {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--farbe-flaeche);
+  border: 1px solid var(--farbe-rand);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.avatar-0 { background: #d1fae5; color: #047857; }
+.avatar-1 { background: #e0f2fe; color: #0369a1; }
+.avatar-2 { background: #fef3c7; color: #b45309; }
+.avatar-3 { background: #ffe4e6; color: #be123c; }
+.avatar-4 { background: #ede9fe; color: #6d28d9; }
+.avatar-5 { background: #ccfbf1; color: #0f766e; }
+
+.teilnehmer-name { font-weight: 600; }
+.teilnehmer-details { font-size: 12px; color: var(--farbe-text-gedaempft); }
+.teilnehmer-zeit { font-size: 12px; color: var(--farbe-text-schwach); }
+
+.leer-hinweis {
+  text-align: center;
+  padding: 32px 0;
+  color: var(--farbe-text-schwach);
+}
+.leer-hinweis svg { margin-bottom: 8px; opacity: .5; }
+
+.spielplatz-eintrag {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--farbe-flaeche);
+  border: 1px solid var(--farbe-rand);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.spielplatz-eintrag .name { font-weight: 500; }
+.spielplatz-eintrag .hinzugefuegt { font-size: 12px; color: var(--farbe-text-schwach); }
+
+.eingabe-zeile { display: flex; gap: 8px; }
+.eingabe-zeile input { flex: 1; }
+
+.abschnitt-titel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.verbindungsstatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f5f5f4;
+  color: var(--farbe-text-schwach);
+}
+.verbindungsstatus.live {
+  background: var(--farbe-primaer-hell);
+  color: var(--farbe-primaer-dunkel);
+}
+
+.toast {
+  position: fixed;
+  bottom: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #292524;
+  color: white;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0,0,0,.2);
+}
+
+.onboarding {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  gap: 32px;
+  background: linear-gradient(to bottom, var(--farbe-primaer-hell), var(--farbe-hintergrund));
+  text-align: center;
+}
+
+.onboarding-icon { color: var(--farbe-primaer); }
+.onboarding h1 { font-size: 30px; }
+.onboarding p.untertitel { color: var(--farbe-text-gedaempft); font-size: 14px; }
+.onboarding form { width: 100%; max-width: 380px; text-align: left; display: flex; flex-direction: column; gap: 16px; }
+.onboarding .hinweis { font-size: 12px; color: var(--farbe-text-schwach); margin-top: 6px; }
+
+.lade-anzeige {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drehend {
+  animation: drehen 1s linear infinite;
+}
+@keyframes drehen { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .drehend { animation: none; }
+}
+
+/* Sichtbare Fehleranzeige (siehe js/gemeinsam.js) */
+.fehleranzeige {
+  position: fixed;
+  inset: 0;
+  background: #fff7ed;
+  color: #7c2d12;
+  padding: 20px;
+  font-family: ui-monospace, monospace;
+  font-size: 14px;
+  overflow: auto;
+  z-index: 99999;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
